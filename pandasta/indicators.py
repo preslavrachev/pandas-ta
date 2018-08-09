@@ -2,11 +2,9 @@ import pandas as pd
 import random
 from enum import Enum
 
-from pandas.tseries.frequencies import to_offset
-
 
 class TaDataFrame(pd.DataFrame):
-    def __init__(self, data=None, index=None, columns=None, indicators=None, dtype=None,
+    def __init__(self, data=None, index=None, columns=None, indicators=[], dtype=None,
                  copy=False, offset='1s'):
         super().__init__(data, index, columns, dtype, copy)
         #self.indicators = indicators
