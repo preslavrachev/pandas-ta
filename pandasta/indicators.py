@@ -14,11 +14,6 @@ class TaDataFrame(pd.DataFrame):
         self['time'] = pd.to_datetime(self['time'], unit='s')
         self.set_index('time', inplace=True)
 
-        #print(self.resample('3D', on='time'))
-
-        print(to_offset('1W') / to_offset('1s'))
-        pd.Timedelta()
-
         for indicator in indicators:
             self[indicator] = TaDataFrame.parse(indicator, self)
 
