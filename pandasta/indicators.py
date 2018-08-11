@@ -73,9 +73,21 @@ class StochasticOscillatorK(Indicator):
         return (closing_prices - low_prices) / (high_prices - low_prices)
 
 
+class HighLowPriceRatio(Indicator):
+
+    @staticmethod
+    def create(data: TaDataFrame, period):
+        assert type(
+            period) == int, 'Only an integer number of periods is supported at the moment!'
+        low_prices = data.get_low_prices().rolling(period).mean()
+        high_prices = data.get_high_prices().rolling(period).mean()
+        return low_prices / high_prices
+
+
 class Indicators(Enum):
     SMA = ('sma', SimpleMovingAverage.create)
     EMA = ('ema', ExponentialMovingAverage.create)
+    HILO = ('hilo', HighLowPriceRatio.create)
     STOCH_K = ('stochk', StochasticOscillatorK.create)
 
 
@@ -90,7 +102,7 @@ def main():
     } for i in range(1000)]
 
     df = TaDataFrame(data, indicators=[
-                     'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365'])
+                     'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365', 'hilo_7'])
     print(df)
 
 
