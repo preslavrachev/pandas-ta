@@ -7,7 +7,7 @@ class TaDataFrame(pd.DataFrame):
     def __init__(self, data=None, index=None, columns=None, indicators=[], dtype=None,
                  copy=False, offset='1s'):
         super().__init__(data, index, columns, dtype, copy)
-        #self.indicators = indicators
+        # self.indicators = indicators
 
         self['time'] = pd.to_datetime(self['time'], unit='s')
         self.set_index('time', inplace=True)
@@ -37,9 +37,24 @@ class TaDataFrame(pd.DataFrame):
             label_period = int(label_parts[1]) if str(
                 label_parts[1]).isdigit() else str(label_parts[1])
 
-            if (shortname == label_shortname):
+            if shortname == label_shortname:
                 # print('will create ', indicator)
                 return creator_func(series, label_period)
+
+
+class TradingStrategy(object):
+    def generate_order(self, record, funds, balance):
+        pass
+
+
+class BacktestingTaDataFrame(TaDataFrame):
+    def __init__(self, data, indicators, funds, balance=0.0, **kwargs):
+        super().__init__(data, indicators=indicators, **kwargs)
+        self.funds = funds
+        self.balance = balance
+
+    def apply_strategy(self, strategy: TradingStrategy) -> pd.Series:
+        return self.apply(lambda record: strategy.generate_order(record, self.funds, self.balance))
 
 
 class Indicator(object):
@@ -59,7 +74,7 @@ class ExponentialMovingAverage(Indicator):
     def create(data: TaDataFrame, period):
         assert type(
             period) == int, 'Only an integer number of periods is supported at the moment!'
-        return pd.ewma(data.get_closing_prices(), span=period, min_periods=period-1)
+        return pd.ewma(data.get_closing_prices(), span=period, min_periods=period - 1)
 
 
 class StochasticOscillatorK(Indicator):
@@ -92,7 +107,6 @@ class Indicators(Enum):
 
 
 def main():
-
     data = [{
         "time": i,
         "low": max(i + random.randint(-100, -50), 1),
@@ -101,8 +115,10 @@ def main():
         "close": max(i + random.randint(-50, 50), 1)
     } for i in range(1000)]
 
-    df = TaDataFrame(data, indicators=[
-                     'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365', 'hilo_7'])
+    df = BacktestingTaDataFrame(data,
+                                funds=1000,
+                                indicators=[
+                                    'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365', 'hilo_7'])
     print(df)
 
 
