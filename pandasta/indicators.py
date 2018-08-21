@@ -79,8 +79,8 @@ class HighLowPriceRatio(Indicator):
     def create(data: TaDataFrame, period):
         assert type(
             period) == int, 'Only an integer number of periods is supported at the moment!'
-        low_prices = data.get_low_prices().rolling(period).mean()
-        high_prices = data.get_high_prices().rolling(period).mean()
+        low_prices = data.get_low_prices().rolling(period).min()
+        high_prices = data.get_high_prices().rolling(period).max()
         return low_prices / high_prices
 
 
