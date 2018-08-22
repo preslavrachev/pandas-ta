@@ -1,6 +1,9 @@
+from collections import namedtuple
+
 import pandas as pd
 import random
 from enum import Enum
+from typing import Optional
 
 
 class TaDataFrame(pd.DataFrame):
@@ -43,8 +46,21 @@ class TaDataFrame(pd.DataFrame):
 
 
 class TradingStrategy(object):
-    def generate_order(self, record, funds, balance):
-        pass
+    class Decision(Enum):
+        BUY = 1
+        SELL = 2
+
+    class OrderStatus(Enum):
+        OPEN = 1
+        FILLED = 2
+        CANCELLED = 3
+        REJECTED = 4
+
+    Order = namedtuple('Order', ['decision', 'amount', 'status'])
+
+    def generate_order(self, record, funds, balance) -> Order:
+        return TradingStrategy.Order(TradingStrategy.Decision.BUY, 0.001, TradingStrategy.OrderStatus.OPEN)
+        # pass
 
 
 class BacktestingTaDataFrame(TaDataFrame):
@@ -54,7 +70,35 @@ class BacktestingTaDataFrame(TaDataFrame):
         self.balance = balance
 
     def apply_strategy(self, strategy: TradingStrategy) -> pd.Series:
-        return self.apply(lambda record: strategy.generate_order(record, self.funds, self.balance))
+        return self.apply(lambda record: self._apply_strategy_on_record(record, strategy), axis=1)
+
+    def _apply_strategy_on_record(self, record, strategy: TradingStrategy) -> Optional[TradingStrategy.Order]:
+        order = strategy.generate_order(record, self.funds, self.balance)
+
+        if order is None:
+            return
+
+        if order.decision == TradingStrategy.Decision.BUY:
+            closing_price = record['close']
+            amount_to_buy = closing_price * order.amount
+
+            if amount_to_buy <= self.funds:
+                self.funds -= amount_to_buy
+                # TODO: Named tuples are immutable. Find another way to set the status. Perhaps, copy the entire order
+                # order.status = TradingStrategy.OrderStatus.FILLED
+            else:
+                pass
+                # order.status = TradingStrategy.OrderStatus.REJECTED
+        elif order.decision == TradingStrategy.Decision.SELL:
+            amount_to_sell = order.amount
+            if amount_to_sell <= self.balance:
+                self.balance -= amount_to_sell
+                # order.status = TradingStrategy.OrderStatus.FILLED
+            else:
+                pass
+                # order.status = TradingStrategy.OrderStatus.REJECTED
+
+        return order
 
 
 class Indicator(object):
@@ -119,6 +163,9 @@ def main():
                                 funds=1000,
                                 indicators=[
                                     'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365', 'hilo_7'])
+
+    df['strat'] = df.apply_strategy(TradingStrategy())
+
     print(df)
 
 
