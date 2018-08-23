@@ -75,17 +75,25 @@ class OrderContext:
 class TradingStrategy(object):
 
     def generate_order(self, record, funds, balance) -> Order:
-        return Order(decision=Order.Decision.BUY, amount=0.001)
-        # pass
+        pass
+
+
+class RandomDemoTradingStrategy(TradingStrategy):
+    def generate_order(self, record, funds, balance) -> Order:
+        amount = 0.001 * random.randrange(1, 10)
+        decision = random.choice([Order.Decision.BUY, Order.Decision.SELL])
+        return Order(decision=decision, amount=amount)
 
 
 class BacktestingTaDataFrame(TaDataFrame):
     def __init__(self, data, indicators, funds, balance=0.0, **kwargs):
         super().__init__(data, indicators=indicators, **kwargs)
+        # TODO: Add min_amount, fees, and percentage of orders not going through
         self.funds = funds
         self.balance = balance
 
     def apply_strategy(self, strategy: TradingStrategy) -> pd.DataFrame:
+        # TODO: Add support for filtering out rejected and canceled orders
         order_contexts = self.apply(lambda record: self._apply_strategy_on_record(record, strategy), axis=1)
         decisions = order_contexts.apply(lambda oc: oc.order.decision)
         amounts = order_contexts.apply(lambda oc: oc.order.amount)
@@ -106,25 +114,25 @@ class BacktestingTaDataFrame(TaDataFrame):
         if order is None:
             return
 
-        if order.decision == Order.Decision.BUY:
-            closing_price = record['close']
-            amount_to_buy = closing_price * order.amount
+        closing_price = record['close']
+        amount_in_funds_units = closing_price * order.amount
 
-            if amount_to_buy <= self.funds:
-                self.funds -= amount_to_buy
+        if order.decision == Order.Decision.BUY:
+            if amount_in_funds_units <= self.funds:
+                self.funds -= amount_in_funds_units
+                self.balance += order.amount
                 order.status = Order.OrderStatus.FILLED
             else:
-                pass
                 order.status = Order.OrderStatus.REJECTED
         elif order.decision == Order.Decision.SELL:
-            amount_to_sell = order.amount
-            if amount_to_sell <= self.balance:
-                self.balance -= amount_to_sell
+            if order.amount <= self.balance:
+                self.balance -= order.amount
+                self.funds += amount_in_funds_units
                 order.status = Order.OrderStatus.FILLED
             else:
-                pass
                 order.status = Order.OrderStatus.REJECTED
 
+        # TODO: Add support for delaying orders by putting them on a queue
         return OrderContext(order, funds=self.funds, balance=self.balance)
 
 
@@ -191,7 +199,7 @@ def main():
                                 indicators=[
                                     'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365', 'hilo_7'])
 
-    print(df.apply_strategy(TradingStrategy()))
+    print(df.apply_strategy(RandomDemoTradingStrategy()))
     # print(df)
 
 
