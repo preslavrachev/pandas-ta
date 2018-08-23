@@ -1,7 +1,6 @@
-from collections import namedtuple
-
 import pandas as pd
 import random
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
@@ -45,7 +44,8 @@ class TaDataFrame(pd.DataFrame):
                 return creator_func(series, label_period)
 
 
-class TradingStrategy(object):
+@dataclass
+class Order:
     class Decision(Enum):
         BUY = 1
         SELL = 2
@@ -56,10 +56,26 @@ class TradingStrategy(object):
         CANCELLED = 3
         REJECTED = 4
 
-    Order = namedtuple('Order', ['decision', 'amount', 'status'])
+    decision: Decision.BUY
+    amount: float
+    status: OrderStatus = OrderStatus.OPEN
+
+
+@dataclass
+class OrderContext:
+    """
+    A wrapper around order, containing additional contextual information, such as the amount of funds,
+    as well as the current balance
+    """
+    order: Order
+    funds: float
+    balance: float
+
+
+class TradingStrategy(object):
 
     def generate_order(self, record, funds, balance) -> Order:
-        return TradingStrategy.Order(TradingStrategy.Decision.BUY, 0.001, TradingStrategy.OrderStatus.OPEN)
+        return Order(decision=Order.Decision.BUY, amount=0.001)
         # pass
 
 
@@ -69,36 +85,47 @@ class BacktestingTaDataFrame(TaDataFrame):
         self.funds = funds
         self.balance = balance
 
-    def apply_strategy(self, strategy: TradingStrategy) -> pd.Series:
-        return self.apply(lambda record: self._apply_strategy_on_record(record, strategy), axis=1)
+    def apply_strategy(self, strategy: TradingStrategy) -> pd.DataFrame:
+        order_contexts = self.apply(lambda record: self._apply_strategy_on_record(record, strategy), axis=1)
+        decisions = order_contexts.apply(lambda oc: oc.order.decision)
+        amounts = order_contexts.apply(lambda oc: oc.order.amount)
+        statuses = order_contexts.apply(lambda oc: oc.order.status)
+        funds = order_contexts.apply(lambda oc: oc.funds)
+        balance = order_contexts.apply(lambda oc: oc.balance)
 
-    def _apply_strategy_on_record(self, record, strategy: TradingStrategy) -> Optional[TradingStrategy.Order]:
+        result_df = pd.DataFrame({"decisions": decisions,
+                                  "amounts": amounts,
+                                  "statuses": statuses,
+                                  "funds": funds,
+                                  "balance": balance})
+        return result_df
+
+    def _apply_strategy_on_record(self, record, strategy: TradingStrategy) -> Optional[OrderContext]:
         order = strategy.generate_order(record, self.funds, self.balance)
 
         if order is None:
             return
 
-        if order.decision == TradingStrategy.Decision.BUY:
+        if order.decision == Order.Decision.BUY:
             closing_price = record['close']
             amount_to_buy = closing_price * order.amount
 
             if amount_to_buy <= self.funds:
                 self.funds -= amount_to_buy
-                # TODO: Named tuples are immutable. Find another way to set the status. Perhaps, copy the entire order
-                # order.status = TradingStrategy.OrderStatus.FILLED
+                order.status = Order.OrderStatus.FILLED
             else:
                 pass
-                # order.status = TradingStrategy.OrderStatus.REJECTED
-        elif order.decision == TradingStrategy.Decision.SELL:
+                order.status = Order.OrderStatus.REJECTED
+        elif order.decision == Order.Decision.SELL:
             amount_to_sell = order.amount
             if amount_to_sell <= self.balance:
                 self.balance -= amount_to_sell
-                # order.status = TradingStrategy.OrderStatus.FILLED
+                order.status = Order.OrderStatus.FILLED
             else:
                 pass
-                # order.status = TradingStrategy.OrderStatus.REJECTED
+                order.status = Order.OrderStatus.REJECTED
 
-        return order
+        return OrderContext(order, funds=self.funds, balance=self.balance)
 
 
 class Indicator(object):
@@ -164,9 +191,8 @@ def main():
                                 indicators=[
                                     'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365', 'hilo_7'])
 
-    df['strat'] = df.apply_strategy(TradingStrategy())
-
-    print(df)
+    print(df.apply_strategy(TradingStrategy()))
+    # print(df)
 
 
 if __name__ == '__main__':
