@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import random
 from dataclasses import dataclass
@@ -89,15 +90,21 @@ class BacktestingTaDataFrame(TaDataFrame):
     def __init__(self, data, indicators, funds, balance=0.0, **kwargs):
         super().__init__(data, indicators=indicators, **kwargs)
         # TODO: Add min_amount, fees, and percentage of orders not going through
-        self.funds = funds
-        self.balance = balance
+        self.initial_funds = funds
+        self.initial_balance = balance
 
     def apply_strategy(self, strategy: TradingStrategy) -> pd.DataFrame:
         # TODO: Add support for filtering out rejected and canceled orders
-        order_contexts = self.apply(lambda record: self._apply_strategy_on_record(record, strategy), axis=1)
-        decisions = order_contexts.apply(lambda oc: oc.order.decision)
-        amounts = order_contexts.apply(lambda oc: oc.order.amount)
-        statuses = order_contexts.apply(lambda oc: oc.order.status)
+        funds_and_balance = {'residual_funds': self.initial_funds,
+                             'residual_balance': self.initial_balance}
+
+        order_contexts = self.apply(lambda record: BacktestingTaDataFrame._apply_strategy_on_record(record,
+                                                                                                    strategy,
+                                                                                                    funds_and_balance),
+                                    axis=1)
+        decisions = order_contexts.apply(lambda oc: oc.order.decision if oc.order else np.NaN)
+        amounts = order_contexts.apply(lambda oc: oc.order.amount if oc.order else np.NaN)
+        statuses = order_contexts.apply(lambda oc: oc.order.status if oc.order else np.NaN)
         funds = order_contexts.apply(lambda oc: oc.funds)
         balance = order_contexts.apply(lambda oc: oc.balance)
 
@@ -108,32 +115,37 @@ class BacktestingTaDataFrame(TaDataFrame):
                                   "balance": balance})
         return result_df
 
-    def _apply_strategy_on_record(self, record, strategy: TradingStrategy) -> Optional[OrderContext]:
-        order = strategy.generate_order(record, self.funds, self.balance)
+    @staticmethod
+    def _apply_strategy_on_record(record,
+                                  strategy: TradingStrategy,
+                                  funds_and_balance: dict) -> Optional[OrderContext]:
+        residual_funds = funds_and_balance['residual_funds']
+        residual_balance = funds_and_balance['residual_balance']
+        order = strategy.generate_order(record, residual_funds, residual_balance)
 
-        if order is None:
-            return
+        if order:
+            closing_price = record['close']
+            amount_in_funds_units = closing_price * order.amount
 
-        closing_price = record['close']
-        amount_in_funds_units = closing_price * order.amount
-
-        if order.decision == Order.Decision.BUY:
-            if amount_in_funds_units <= self.funds:
-                self.funds -= amount_in_funds_units
-                self.balance += order.amount
-                order.status = Order.OrderStatus.FILLED
-            else:
-                order.status = Order.OrderStatus.REJECTED
-        elif order.decision == Order.Decision.SELL:
-            if order.amount <= self.balance:
-                self.balance -= order.amount
-                self.funds += amount_in_funds_units
-                order.status = Order.OrderStatus.FILLED
-            else:
-                order.status = Order.OrderStatus.REJECTED
+            if order.decision == Order.Decision.BUY:
+                if amount_in_funds_units <= residual_funds:
+                    residual_funds -= amount_in_funds_units
+                    residual_balance += order.amount
+                    order.status = Order.OrderStatus.FILLED
+                else:
+                    order.status = Order.OrderStatus.REJECTED
+            elif order.decision == Order.Decision.SELL:
+                if order.amount <= residual_balance:
+                    residual_balance -= order.amount
+                    residual_funds += amount_in_funds_units
+                    order.status = Order.OrderStatus.FILLED
+                else:
+                    order.status = Order.OrderStatus.REJECTED
 
         # TODO: Add support for delaying orders by putting them on a queue
-        return OrderContext(order, funds=self.funds, balance=self.balance)
+        funds_and_balance['residual_funds'] = residual_funds
+        funds_and_balance['residual_balance'] = residual_balance
+        return OrderContext(order, funds=residual_funds, balance=residual_balance)
 
 
 class Indicator(object):
