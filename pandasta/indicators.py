@@ -71,6 +71,7 @@ class OrderContext:
     order: Order
     funds: float
     balance: float
+    worth: float
 
 
 class TradingStrategy(object):
@@ -103,16 +104,23 @@ class BacktestingTaDataFrame(TaDataFrame):
                                                                                                     funds_and_balance),
                                     axis=1)
         decisions = order_contexts.apply(lambda oc: oc.order.decision if oc.order else np.NaN)
-        amounts = order_contexts.apply(lambda oc: oc.order.amount if oc.order else np.NaN)
+        amounts = order_contexts.apply(lambda oc: oc.order.amount if oc.order else 0.0)
         statuses = order_contexts.apply(lambda oc: oc.order.status if oc.order else np.NaN)
         funds = order_contexts.apply(lambda oc: oc.funds)
         balance = order_contexts.apply(lambda oc: oc.balance)
+        worth = order_contexts.apply(lambda oc: oc.worth)
 
-        result_df = pd.DataFrame({"decisions": decisions,
-                                  "amounts": amounts,
-                                  "statuses": statuses,
-                                  "funds": funds,
-                                  "balance": balance})
+        # Used for comparing the strategy against simply buying and holding
+        initial_buy_hold_balance = self.initial_funds / self.iloc[0]['close']
+        buy_hold = self['close'].apply(lambda price: price * initial_buy_hold_balance)
+
+        result_df = pd.DataFrame({'decisions': decisions,
+                                  'amounts': amounts,
+                                  'statuses': statuses,
+                                  'funds': funds,
+                                  'balance': balance,
+                                  'worth': worth,
+                                  'buy_hold': buy_hold})
         return result_df
 
     @staticmethod
@@ -121,10 +129,11 @@ class BacktestingTaDataFrame(TaDataFrame):
                                   funds_and_balance: dict) -> Optional[OrderContext]:
         residual_funds = funds_and_balance['residual_funds']
         residual_balance = funds_and_balance['residual_balance']
+        closing_price = record['close']
+
         order = strategy.generate_order(record, residual_funds, residual_balance)
 
         if order:
-            closing_price = record['close']
             amount_in_funds_units = closing_price * order.amount
 
             if order.decision == Order.Decision.BUY:
@@ -145,7 +154,10 @@ class BacktestingTaDataFrame(TaDataFrame):
         # TODO: Add support for delaying orders by putting them on a queue
         funds_and_balance['residual_funds'] = residual_funds
         funds_and_balance['residual_balance'] = residual_balance
-        return OrderContext(order, funds=residual_funds, balance=residual_balance)
+        return OrderContext(order,
+                            funds=residual_funds,
+                            balance=residual_balance,
+                            worth=residual_funds + (residual_balance * closing_price))
 
 
 class Indicator(object):
