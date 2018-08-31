@@ -226,6 +226,7 @@ def main():
 
     df = BacktestingTaDataFrame(data,
                                 funds=1000,
+                                min_amount=0.001,
                                 indicators=[
                                     'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365', 'hilo_7'])
 
