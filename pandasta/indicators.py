@@ -208,11 +208,29 @@ class HighLowPriceRatio(Indicator):
         return low_prices / high_prices
 
 
+class AverageTrueRange(Indicator):
+    @staticmethod
+    def create(data: TaDataFrame, period):
+        assert type(
+            period) == int, 'Only an integer number of periods is supported at the moment!'
+
+        ext_data = data.copy()
+        ext_data['prev_close'] = data['close'].shift(1)
+
+        ext_data['h_minus_l'] = ext_data['high'] - ext_data['low']
+        ext_data['h_minus_pc'] = (ext_data['high'] - ext_data['prev_close']).abs()
+        ext_data['l_minus_pc'] = (ext_data['low'] - ext_data['prev_close']).abs()
+
+        tr_s = ext_data[['h_minus_l', 'h_minus_pc', 'l_minus_pc']].max(axis=1)
+        return pd.ewma(tr_s, span=period, min_periods=period)
+
+
 class Indicators(Enum):
     SMA = ('sma', SimpleMovingAverage.create)
     EMA = ('ema', ExponentialMovingAverage.create)
     HILO = ('hilo', HighLowPriceRatio.create)
     STOCH_K = ('stochk', StochasticOscillatorK.create)
+    ATR = ('atr', AverageTrueRange.create)
 
 
 def main():
@@ -228,7 +246,7 @@ def main():
                                 funds=1000,
                                 min_amount=0.001,
                                 indicators=[
-                                    'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365', 'hilo_7'])
+                                    'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365', 'hilo_7', 'atr_14'])
 
     print(df.apply_strategy(RandomDemoTradingStrategy()))
     # print(df)
