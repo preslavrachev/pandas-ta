@@ -230,7 +230,9 @@ class AverageTrueRange(Indicator):
 class LinearTrend(Indicator):
     @staticmethod
     def create(data: TaDataFrame, period):
-        a = PandasRollingOLS(y=data['close'], x=data['timestamp'], window=14)
+        # TODO: Use a more optimal way to generate this series
+        row_ids = pd.Series(np.arange(0, len(data), step=1), index=data.index)
+        a = PandasRollingOLS(y=data['close'], x=row_ids, window=period)
         return a.beta.astype('float32')
 
 
@@ -259,8 +261,8 @@ def main():
                                     'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365', 'hilo_7', 'atr_14',
                                     'trend_14'])
 
-    print(df.apply_strategy(RandomDemoTradingStrategy()))
-    # print(df)
+    # print(df.apply_strategy(RandomDemoTradingStrategy()))
+    print(df)
 
 
 if __name__ == '__main__':
