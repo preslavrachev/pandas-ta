@@ -3,6 +3,7 @@ import pandas as pd
 import random
 from dataclasses import dataclass
 from enum import Enum
+from pyfinance.ols import PandasRollingOLS
 from typing import Optional
 
 
@@ -12,6 +13,7 @@ class TaDataFrame(pd.DataFrame):
         super().__init__(data, index, columns, dtype, copy)
         # self.indicators = indicators
 
+        self['timestamp'] = self['time']
         self['time'] = pd.to_datetime(self['time'], unit='s')
         self.set_index('time', inplace=True)
 
@@ -225,12 +227,20 @@ class AverageTrueRange(Indicator):
         return pd.ewma(tr_s, span=period, min_periods=period)
 
 
+class LinearTrend(Indicator):
+    @staticmethod
+    def create(data: TaDataFrame, period):
+        a = PandasRollingOLS(y=data['close'], x=data['timestamp'], window=14)
+        return a.beta.astype('float32')
+
+
 class Indicators(Enum):
     SMA = ('sma', SimpleMovingAverage.create)
     EMA = ('ema', ExponentialMovingAverage.create)
     HILO = ('hilo', HighLowPriceRatio.create)
     STOCH_K = ('stochk', StochasticOscillatorK.create)
     ATR = ('atr', AverageTrueRange.create)
+    TREND = ('trend', LinearTrend.create)
 
 
 def main():
@@ -246,7 +256,8 @@ def main():
                                 funds=1000,
                                 min_amount=0.001,
                                 indicators=[
-                                    'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365', 'hilo_7', 'atr_14'])
+                                    'sma_60', 'sma_1min', 'ema_50', 'stochk_14', 'stochk_365', 'hilo_7', 'atr_14',
+                                    'trend_14'])
 
     print(df.apply_strategy(RandomDemoTradingStrategy()))
     # print(df)

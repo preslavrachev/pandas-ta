@@ -1,7 +1,7 @@
 import random
 import unittest
 
-from pandasta.indicators import BacktestingTaDataFrame, Order
+from pandasta.indicators import BacktestingTaDataFrame, Order, TaDataFrame
 from pandasta.indicators import TradingStrategy
 
 MIN_AMOUNT = 0.001
@@ -18,6 +18,18 @@ class TestStrategy(TradingStrategy):
 
 
 class TestPandasTA(unittest.TestCase):
+
+    def test_trend_indicator(self):
+        rate_of_change = 1.02
+        data = [{
+            "time": i,
+            "close": i * rate_of_change
+        } for i in range(1000)]
+
+        df = TaDataFrame(data, indicators=['trend_14'])
+        all_trends_match_expected_answer = (df['trend_14'].dropna() == rate_of_change).all()
+
+        self.assertTrue(all_trends_match_expected_answer)
 
     def test_backtesting_when_all_orders_ask_for_sub_minimum_amounts(self):
         data = [{
