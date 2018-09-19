@@ -63,6 +63,7 @@ class TestPandasTA(unittest.TestCase):
         res = df.apply_strategy(ReplenishmentStrategy())
 
         self.assertTrue(res.iloc[-1]['funds'] == initial_funds)
+        self.assertTrue(res.iloc[-1]['total_funds_over_time'] == initial_funds)
 
     def test_funds_replenishment(self):
         class ReplenishmentStrategy(TradingStrategy):
@@ -79,6 +80,7 @@ class TestPandasTA(unittest.TestCase):
         res = df.apply_strategy(ReplenishmentStrategy())
 
         self.assertTrue(res.iloc[-1]['funds'] == num_of_records)
+        self.assertTrue(res.iloc[-1]['total_funds_over_time'] == num_of_records)
 
 
 if __name__ == '__main__':

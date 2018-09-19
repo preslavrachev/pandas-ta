@@ -73,6 +73,7 @@ class OrderContext:
     """
     order: Order
     funds: float
+    total_funds_over_time: float
     balance: float
     worth: float
 
@@ -105,6 +106,7 @@ class BacktestingTaDataFrame(TaDataFrame):
     def apply_strategy(self, strategy: TradingStrategy) -> pd.DataFrame:
         # TODO: Add support for filtering out rejected and canceled orders
         funds_and_balance = {'residual_funds': self.initial_funds,
+                             'total_funds_over_time': self.initial_funds,
                              'residual_balance': self.initial_balance}
 
         order_contexts = self.apply(lambda record: BacktestingTaDataFrame._apply_strategy_on_record(record,
@@ -116,6 +118,7 @@ class BacktestingTaDataFrame(TaDataFrame):
         amounts = order_contexts.apply(lambda oc: oc.order.amount if oc.order else 0.0)
         statuses = order_contexts.apply(lambda oc: oc.order.status.name if oc.order else np.NaN)
         funds = order_contexts.apply(lambda oc: oc.funds)
+        total_funds_over_time = order_contexts.apply(lambda oc: oc.total_funds_over_time)
         balance = order_contexts.apply(lambda oc: oc.balance)
         worth = order_contexts.apply(lambda oc: oc.worth)
 
@@ -129,7 +132,8 @@ class BacktestingTaDataFrame(TaDataFrame):
                                   'funds': funds,
                                   'balance': balance,
                                   'worth': worth,
-                                  'buy_hold': buy_hold})
+                                  'buy_hold': buy_hold,
+                                  'total_funds_over_time': total_funds_over_time})
         return result_df
 
     @staticmethod
@@ -139,10 +143,13 @@ class BacktestingTaDataFrame(TaDataFrame):
                                   min_amount: float) -> Optional[OrderContext]:
         residual_funds = funds_and_balance['residual_funds']
         residual_balance = funds_and_balance['residual_balance']
+        total_funds_over_time = funds_and_balance['total_funds_over_time']
         closing_price = record['close']
 
         # check, if funds are to be replenished
-        residual_funds += strategy.replenish_funds(record)
+        amount_to_replenish_with = strategy.replenish_funds(record)
+        residual_funds += amount_to_replenish_with
+        total_funds_over_time += amount_to_replenish_with
 
         order = strategy.generate_order(record, residual_funds, residual_balance)
 
@@ -169,9 +176,11 @@ class BacktestingTaDataFrame(TaDataFrame):
 
         # TODO: Add support for delaying orders by putting them on a queue
         funds_and_balance['residual_funds'] = residual_funds
+        funds_and_balance['total_funds_over_time'] = total_funds_over_time
         funds_and_balance['residual_balance'] = residual_balance
         return OrderContext(order,
                             funds=residual_funds,
+                            total_funds_over_time=total_funds_over_time,
                             balance=residual_balance,
                             worth=residual_funds + (residual_balance * closing_price))
 
