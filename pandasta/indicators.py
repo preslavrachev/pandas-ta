@@ -3,6 +3,7 @@ import pandas as pd
 import random
 from dataclasses import dataclass
 from enum import Enum
+from abc import ABCMeta, abstractmethod
 from pyfinance.ols import PandasRollingOLS
 from typing import Optional
 
@@ -76,8 +77,12 @@ class OrderContext:
     worth: float
 
 
-class TradingStrategy(object):
+class TradingStrategy(object, metaclass=ABCMeta):
 
+    def replenish_funds(self, record) -> float:
+        return 0
+
+    @abstractmethod
     def generate_order(self, record, funds, balance) -> Order:
         pass
 
@@ -135,6 +140,9 @@ class BacktestingTaDataFrame(TaDataFrame):
         residual_funds = funds_and_balance['residual_funds']
         residual_balance = funds_and_balance['residual_balance']
         closing_price = record['close']
+
+        # check, if funds are to be replenished
+        residual_funds += strategy.replenish_funds(record)
 
         order = strategy.generate_order(record, residual_funds, residual_balance)
 

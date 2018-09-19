@@ -1,8 +1,7 @@
 import random
 import unittest
 
-from pandasta.indicators import BacktestingTaDataFrame, Order, TaDataFrame
-from pandasta.indicators import TradingStrategy
+from pandasta.indicators import BacktestingTaDataFrame, Order, TaDataFrame, TradingStrategy
 
 MIN_AMOUNT = 0.001
 
@@ -50,6 +49,36 @@ class TestPandasTA(unittest.TestCase):
         all_rejected = (res['statuses'] == 'REJECTED').all()
 
         self.assertTrue(all_rejected, 'Not all orders seem to have been rejected. Please, re-check the logic')
+
+    def test_that_funds_replenishment_does_not_change_overall_funds_by_default(self):
+        class ReplenishmentStrategy(TradingStrategy):
+
+            def generate_order(self, record, funds, balance) -> Order:
+                return None
+
+        num_of_records = 100
+        initial_funds = 1000
+        df = BacktestingTaDataFrame(data=[{'time': i, 'close': 1} for i in range(num_of_records)], indicators=[],
+                                    funds=initial_funds, min_amount=MIN_AMOUNT)
+        res = df.apply_strategy(ReplenishmentStrategy())
+
+        self.assertTrue(res.iloc[-1]['funds'] == initial_funds)
+
+    def test_funds_replenishment(self):
+        class ReplenishmentStrategy(TradingStrategy):
+
+            def generate_order(self, record, funds, balance) -> Order:
+                return None
+
+            def replenish_funds(self, record) -> float:
+                return 1.0
+
+        num_of_records = 100
+        df = BacktestingTaDataFrame(data=[{'time': i, 'close': 1} for i in range(num_of_records)], indicators=[],
+                                    funds=0.0, min_amount=MIN_AMOUNT)
+        res = df.apply_strategy(ReplenishmentStrategy())
+
+        self.assertTrue(res.iloc[-1]['funds'] == num_of_records)
 
 
 if __name__ == '__main__':
