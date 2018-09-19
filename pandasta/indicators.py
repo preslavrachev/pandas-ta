@@ -123,7 +123,7 @@ class BacktestingTaDataFrame(TaDataFrame):
         worth = order_contexts.apply(lambda oc: oc.worth)
 
         # Used for comparing the strategy against simply buying and holding
-        initial_buy_hold_balance = total_funds_over_time / self.iloc[0]['close']
+        initial_buy_hold_balance = total_funds_over_time.iloc[-1] / self.iloc[0]['close']
         buy_hold = self['close'].apply(lambda price: price * initial_buy_hold_balance)
 
         result_df = pd.DataFrame({'decisions': decisions,
