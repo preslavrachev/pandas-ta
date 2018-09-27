@@ -202,7 +202,7 @@ class ExponentialMovingAverage(Indicator):
     def create(data: TaDataFrame, period):
         assert type(
             period) == int, 'Only an integer number of periods is supported at the moment!'
-        return pd.ewma(data.get_closing_prices(), span=period, min_periods=period - 1)
+        return pd.DataFrame.ewma(data.get_closing_prices(), span=period, min_periods=period - 1)
 
 
 class StochasticOscillatorK(Indicator):
@@ -241,7 +241,7 @@ class AverageTrueRange(Indicator):
         ext_data['l_minus_pc'] = (ext_data['low'] - ext_data['prev_close']).abs()
 
         tr_s = ext_data[['h_minus_l', 'h_minus_pc', 'l_minus_pc']].max(axis=1)
-        return pd.ewma(tr_s, span=period, min_periods=period)
+        return pd.DataFrame.ewma(tr_s, span=period, min_periods=period)
 
 
 class LinearTrend(Indicator):
