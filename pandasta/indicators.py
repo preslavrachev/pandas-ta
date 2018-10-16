@@ -211,9 +211,9 @@ class StochasticOscillatorK(Indicator):
         assert type(
             period) == int, 'Only an integer number of periods is supported at the moment!'
         closing_prices = data.get_closing_prices().rolling(period).mean()
-        low_prices = data.get_low_prices().rolling(period).mean()
-        high_prices = data.get_high_prices().rolling(period).mean()
-        return (closing_prices - low_prices) / (high_prices - low_prices)
+        min_price = data.get_low_prices().rolling(period).min()
+        max_price = data.get_high_prices().rolling(period).max()
+        return (closing_prices - min_price) / (max_price - min_price)
 
 
 class HighLowPriceRatio(Indicator):
