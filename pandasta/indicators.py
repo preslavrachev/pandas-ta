@@ -103,17 +103,19 @@ class BacktestingTaDataFrame(TaDataFrame):
         self.initial_balance = balance
         self.min_amount = min_amount
 
-    def apply_strategy(self, strategy: TradingStrategy) -> pd.DataFrame:
+    def apply_strategy(self, strategy: TradingStrategy, start: Optional[str] = None) -> pd.DataFrame:
         # TODO: Add support for filtering out rejected and canceled orders
         funds_and_balance = {'residual_funds': self.initial_funds,
                              'total_funds_over_time': self.initial_funds,
                              'residual_balance': self.initial_balance}
 
-        order_contexts = self.apply(lambda record: BacktestingTaDataFrame._apply_strategy_on_record(record,
-                                                                                                    strategy,
-                                                                                                    funds_and_balance,
-                                                                                                    self.min_amount),
-                                    axis=1)
+        applicable_portion = self.loc[start:] if start else self
+        order_contexts = applicable_portion.apply(
+            lambda record: BacktestingTaDataFrame._apply_strategy_on_record(record,
+                                                                            strategy,
+                                                                            funds_and_balance,
+                                                                            self.min_amount),
+            axis=1)
         decisions = order_contexts.apply(lambda oc: oc.order.decision.name if oc.order else np.NaN)
         amounts = order_contexts.apply(lambda oc: oc.order.amount if oc.order else 0.0)
         statuses = order_contexts.apply(lambda oc: oc.order.status.name if oc.order else np.NaN)
@@ -123,8 +125,8 @@ class BacktestingTaDataFrame(TaDataFrame):
         worth = order_contexts.apply(lambda oc: oc.worth)
 
         # Used for comparing the strategy against simply buying and holding
-        initial_buy_hold_balance = total_funds_over_time.iloc[-1] / self.iloc[0]['close']
-        buy_hold = self['close'].apply(lambda price: price * initial_buy_hold_balance)
+        initial_buy_hold_balance = total_funds_over_time.iloc[-1] / applicable_portion.iloc[0]['close']
+        buy_hold = applicable_portion['close'].apply(lambda price: price * initial_buy_hold_balance)
 
         result_df = pd.DataFrame({'decisions': decisions,
                                   'amounts': amounts,

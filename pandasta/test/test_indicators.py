@@ -82,6 +82,18 @@ class TestPandasTA(unittest.TestCase):
         self.assertTrue(res.iloc[-1]['funds'] == num_of_records)
         self.assertTrue(res.iloc[-1]['total_funds_over_time'] == num_of_records)
 
+    def test_partial_application(self):
+        num_of_records = 10
+        raw_data = [{'time': i, 'close': 1} for i in range(num_of_records)]
+        df = BacktestingTaDataFrame(data=raw_data, indicators=[],
+                                    funds=0.0, min_amount=MIN_AMOUNT)
+        pos = 6
+        expected_index_key_value = df.reset_index().loc[pos, 'time']
+        res = df.apply_strategy(TestStrategy(), start=expected_index_key_value)
+        actual_index_key_value = res.reset_index().loc[0, 'time']
+        self.assertTrue(actual_index_key_value == expected_index_key_value)
+        self.assertTrue(res.shape[0] == num_of_records - pos)
+
 
 if __name__ == '__main__':
     unittest.main()
