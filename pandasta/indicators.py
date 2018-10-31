@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 import random
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from abc import ABCMeta, abstractmethod
 from pyfinance.ols import PandasRollingOLS
 from typing import Optional
 
@@ -207,7 +207,7 @@ class ExponentialMovingAverage(Indicator):
         return pd.ewma(data.get_closing_prices(), span=period, min_periods=period - 1)
 
 
-class StochasticOscillatorK(Indicator):
+class StochasticOscillatorKOld(Indicator):
     @staticmethod
     def create(data: TaDataFrame, period):
         assert type(
@@ -216,6 +216,16 @@ class StochasticOscillatorK(Indicator):
         min_price = data.get_low_prices().rolling(period).min()
         max_price = data.get_high_prices().rolling(period).max()
         return (closing_prices - min_price) / (max_price - min_price)
+
+
+class StochasticOscillatorK(Indicator):
+    @staticmethod
+    def create(data: TaDataFrame, period):
+        assert type(
+            period) == int, 'Only an integer number of periods is supported at the moment!'
+        min_price = data.get_low_prices().rolling(period).min()
+        max_price = data.get_high_prices().rolling(period).max()
+        return (data.get_closing_prices() - min_price) / (max_price - min_price)
 
 
 class HighLowPriceRatio(Indicator):
@@ -260,6 +270,7 @@ class Indicators(Enum):
     EMA = ('ema', ExponentialMovingAverage.create)
     HILO = ('hilo', HighLowPriceRatio.create)
     STOCH_K = ('stochk', StochasticOscillatorK.create)
+    STOCH_K_OLD = ('stochko', StochasticOscillatorKOld.create)
     ATR = ('atr', AverageTrueRange.create)
     TREND = ('trend', LinearTrend.create)
 
