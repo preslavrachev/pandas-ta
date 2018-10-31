@@ -228,6 +228,14 @@ class StochasticOscillatorK(Indicator):
         return (data.get_closing_prices() - min_price) / (max_price - min_price)
 
 
+class StochasticOscillatorD(Indicator):
+    @staticmethod
+    def create(data: TaDataFrame, period):
+        assert type(
+            period) == int, 'Only an integer number of periods is supported at the moment!'
+        return StochasticOscillatorK().create(data, period).rolling(3).mean()
+
+
 class HighLowPriceRatio(Indicator):
 
     @staticmethod
@@ -271,6 +279,7 @@ class Indicators(Enum):
     HILO = ('hilo', HighLowPriceRatio.create)
     STOCH_K = ('stochk', StochasticOscillatorK.create)
     STOCH_K_OLD = ('stochko', StochasticOscillatorKOld.create)
+    STOCH_D = ('stochd', StochasticOscillatorD.create)
     ATR = ('atr', AverageTrueRange.create)
     TREND = ('trend', LinearTrend.create)
 
