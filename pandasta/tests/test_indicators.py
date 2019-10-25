@@ -84,6 +84,7 @@ class TestPandasTA(unittest.TestCase):
                 return 1.0
 
         num_of_records = 100
+
         df = BacktestingTaDataFrame(
             data=[{"time": i, "close": 1} for i in range(num_of_records)],
             indicators=[],
